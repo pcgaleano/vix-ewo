@@ -1,0 +1,609 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © OskarGallard
+
+//@version=5
+indicator(title="EWO Breaking Bands & XTL", shorttitle="EWO & XTL", overlay=false)
+
+// Elliott Wave Oscillator (EWO) Breaking Bands
+show_EWO      = input.bool(true,    "Show EWO Breaking Bands", inline="ewo0", group="Elliott Wave Oscillator")
+bg_EWO        = input.bool(true,    "Background",              inline="ewo0", group="Elliott Wave Oscillator")
+color_bar_ewo = input.bool(false,   "Bar color",               inline="ewo0", group="Elliott Wave Oscillator")
+SRC           = input.string("HL2", " 》Source", group="Elliott Wave Oscillator", options=["TR", "VWAP", "Close", "Open", "HL2", "HLC3", "OHLC4", "HLCC4", "High", "Low", "vwap(Close)", "vwap(Open)", "vwap(High)", "vwap(Low)", "AVG(vwap(H,L))", "AVG(vwap(O,C))", "OBV", "AccDist", "PVT", "Volume"])
+ma_fast       = input.int(5,        "Fast MA",      inline="F", group="Elliott Wave Oscillator")
+type_fast     = input.string("SMA", "Fast MA Type", inline="F", group="Elliott Wave Oscillator", options=["SMA", "EMA", "WMA", "DWMA", "VWMA", "DVWMA", "COVWMA", "FRAMA", "LSMA", "ALMA", "JMA", "HMA", "Wild", "KAMA", "ADX MA", "RSI EMA", "Zero Lag", "Tillson T3", "VIDYA", "CTI", "RMA", "DEMA", "TEMA", "SWMA"])
+ma_slow       = input.int(34,       "Slow MA",      inline="S", group="Elliott Wave Oscillator")
+type_slow     = input.string("SMA", "Slow MA Type", inline="S", group="Elliott Wave Oscillator", options=["SMA", "EMA", "WMA", "DWMA", "VWMA", "DVWMA", "COVWMA", "FRAMA", "LSMA", "ALMA", "JMA", "HMA", "Wild", "KAMA", "ADX MA", "RSI EMA", "Zero Lag", "Tillson T3", "VIDYA", "CTI", "RMA", "DEMA", "TEMA", "SWMA"])
+show_signal   = input.bool(true,    "Show Signal", inline="signal", group="Elliott Wave Oscillator")
+Len           = input.int(7,        "Signal Length", minval=1, inline="signal", group="Elliott Wave Oscillator")
+var string SH1 = "Red ⮀ Green"
+var string SH2 = "Purple ⮀ Blue"
+var string SH3 = "Yellow ⮀  DarkGreen"
+var string SH4 = "Rainbow"
+show_gradient  = input.bool(false, "Gradient Colors", inline="gradient", group="Elliott Wave Oscillator")
+i_invert       = input.bool(false, "Invert",          inline="gradient", group="Elliott Wave Oscillator")
+i_scheme       = input.string(SH1, "Scheme: ",        inline="gradient", group="Elliott Wave Oscillator", options = [SH1, SH2, SH3, SH4])
+
+
+// The Expert Trend Locator - XTL 
+candles_XTL = input.bool(true,     "Use XTL barColor", group="Expert Trend Locator")
+period_xtl  = input.int(35,        "Length", minval=2, inline="xtl", group="Expert Trend Locator")
+MA_Type2    = input.string("ALMA", "Type", inline="xtl", group="Expert Trend Locator", options=["SMA", "ALMA", "EMA", "WMA", "DWMA", "VWMA", "DVWMA", "COVWMA", "FRAMA", "HMA", "LSMA", "Wild", "JMA", "KAMA", "ADX MA", "RSI EMA", "Zero Lag", "Tillson T3", "VIDYA", "CTI", "RMA", "DEMA", "TEMA", "SWMA"])
+src_xtl     = input.string("HLC3", "Source", inline="xtl", group="Expert Trend Locator", options=["TR", "VWAP", "Close", "Open", "HL2", "HLC3", "OHLC4", "HLCC4", "High", "Low", "vwap(Close)", "vwap(Open)", "vwap(High)", "vwap(Low)", "AVG(vwap(H,L))", "AVG(vwap(O,C))", "OBV", "AccDist", "PVT", "Volume"])
+fixed_Value = input.int(37,        "Threshold Level", minval=10, group="Expert Trend Locator", inline="xtl2")
+uTrad       = input.bool(false,    "Use the traditional CCI formula", group="Expert Trend Locator", inline="xtl2")
+detect_bull = input.bool(false,    "◁ Alert: Bullish Trend", inline="alert_xtl", group="Expert Trend Locator")
+detect_bear = input.bool(false,    "◁ Alert: Bearish Trend", inline="alert_xtl", group="Expert Trend Locator")
+
+// TSI Arrows (True Strength Index)
+show_TSI = input.bool(false, "Show TSI Arrows", group="True Strength Indicator")
+long     = input.int(25,     "Length : Long", inline = "LEN", group="True Strength Indicator")
+short    = input.int(5,      "Short",         inline = "LEN", group="True Strength Indicator")
+signal   = input.int(14,     "Signal",        inline = "SS", group="True Strength Indicator")
+src_tsi  = input.string("AVG(vwap(H,L))", "Source", inline = "SS", group="True Strength Indicator", options=["TR", "VWAP", "Close", "Open", "HL2", "HLC3", "OHLC4", "High", "Low", "vwap(Close)", "vwap(Open)", "vwap(High)", "vwap(Low)", "AVG(vwap(H,L))", "AVG(vwap(O,C))", "OBV", "AccDist", "PVT", "Volume"])
+
+// RSI|MFI direction bias
+show_rsi         = input.bool(false,   "Show [MFI | RSI]", inline="indi0", group="MFI | RSI direction bias")
+indicator_op     = input.string("RSI", "Option", options=["RSI", "MFI"], inline="indi0", group="MFI | RSI direction bias")
+color_bars       = input.bool(false,   "Bar color", inline="indi1", group="MFI | RSI direction bias")
+show_areas       = input.bool(false,   "Show OB/OS Areas", inline="indi1", group="MFI | RSI direction bias")
+bg_bias          = input.bool(false,   "Background", inline="indi1", group="MFI | RSI direction bias")
+len_rsi          = input.int(14,       "Length", minval=1, inline="indi2", group="MFI | RSI direction bias")
+src_rsi          = input.source(hlc3,  "Source", inline="indi2", group="MFI | RSI direction bias")
+top_level        = input(55,           "Top level", inline="indi3", group="MFI | RSI direction bias")
+bottom_level     = input(45,           "Bottom level", inline="indi3", group="MFI | RSI direction bias")
+show_signals     = input.bool(false,   "Show Short and Long Signals", group="MFI | RSI direction bias")
+alert_bias_long  = input.bool(false,   "◁ Alert: Long",  inline="alert_bias", group="MFI | RSI direction bias")
+alert_bias_short = input.bool(false,   "◁ Alert: Short", inline="alert_bias", group="MFI | RSI direction bias")
+plotBull         = input.bool(true,  "Plot Bullish",        inline="bull", group="MFI | RSI direction bias")
+plotHiddenBull   = input.bool(false, "Plot Hidden Bullish", inline="bull", group="MFI | RSI direction bias")
+plotBear         = input.bool(true,  "Plot Bearish",        inline="bear", group="MFI | RSI direction bias")
+plotHiddenBear   = input.bool(false, "Plot Hidden Bearish", inline="bear", group="MFI | RSI direction bias")
+lbR              = input.int(5,      "Pivot Lookback Right",  group="MFI | RSI direction bias")
+lbL              = input.int(5,      "Pivot Lookback Left",   group="MFI | RSI direction bias")
+rangeUpper       = input.int(60,     "Max of Lookback Range", group="MFI | RSI direction bias")
+rangeLower       = input.int(5,      "Min of Lookback Range", group="MFI | RSI direction bias")
+
+
+// Function to select the type of source
+get_src(Type) =>
+    if Type == "VWAP"
+        ta.vwap
+    else if Type == "Close"
+        close
+    else if Type == "Open"
+        open
+    else if Type == "HL2"
+        hl2
+    else if Type == "HLC3"
+        hlc3
+    else if Type == "OHLC4"
+        ohlc4
+    else if Type == "HLCC4"
+        hlcc4
+    else if Type == "Volume"
+        volume
+    else if Type == "High"
+        high
+    else if Type == "Low"
+        low
+    else if Type == "vwap(Close)"
+        ta.vwap(close)
+    else if Type == "vwap(Open)"
+        ta.vwap(open)
+    else if Type == "vwap(High)"
+        ta.vwap(high)
+    else if Type == "vwap(Low)"
+        ta.vwap(low)
+    else if Type == "AVG(vwap(H,L))"
+        math.avg(ta.vwap(high), ta.vwap(low))
+    else if Type == "AVG(vwap(O,C))"
+        math.avg(ta.vwap(open), ta.vwap(close))
+    else if Type == "OBV" // On Balance Volume
+        ta.obv
+    else if Type == "AccDist" // Accumulation Distribution
+        ta.accdist
+    else if Type == "PVT" // Price Volume Trend
+        ta.pvt
+    else if Type == "TR"
+        ta.tr
+
+// Kaufman's Adaptive Moving Average - Fast and Slow Ends
+fastK = 0.666  // KAMA Fast End
+slowK = 0.0645 // KAMA Slow End
+kama(x, t)=>
+    dist   = math.abs(x[0] - x[1])
+    signal_x = math.abs(x - x[t])
+    noise  = math.sum(dist, t)
+    effr   = noise!=0 ? signal_x/noise : 1
+    sc     = math.pow(effr*(fastK - slowK) + slowK,2)
+    KAma   = x
+    KAma   := nz(KAma[1]) + sc*(x - nz(KAma[1]))
+    KAma
+
+// Jurik Moving Average of @everget
+jma(src, length, power, phase) => 
+    phaseRatio = phase < -100 ? 0.5 : phase > 100 ? 2.5 : phase / 100 + 1.5
+    beta = 0.45 * (length - 1) / (0.45 * (length - 1) + 2)
+    alpha = math.pow(beta, power)
+    Jma = 0.0
+    e0 = 0.0
+    e0 := (1 - alpha) * src + alpha * nz(e0[1])
+    e1 = 0.0
+    e1 := (src - e0) * (1 - beta) + beta * nz(e1[1])
+    e2 = 0.0
+    e2 := (e0 + phaseRatio * e1 - nz(Jma[1])) * math.pow(1 - alpha, 2) + math.pow(alpha, 2) * nz(e2[1])
+    Jma := e2 + nz(Jma[1])
+    Jma
+
+// ADX Weighted Moving Average of @Duyck 
+adx_weighted_ma(_src, _period) =>
+    [_diplus, _diminus, _adx] = ta.dmi(17, 14)
+    _vol_sum  = 0.0
+    _adx_sum  = 0.0
+    for i = 0 to _period
+        _vol_sum  := _src[i] * _adx[i] + _vol_sum
+        _adx_sum  := _adx[i] + _adx_sum 
+    _volwma   = _vol_sum / _adx_sum
+
+// COVWMA - Coefficient of Variation Weighted Moving Average of @DonovanWall
+covwma(a, b) =>
+    cov    = ta.stdev(a, b) / ta.sma(a, b)
+    cw     = a*cov
+    covwma = math.sum(cw, b) / math.sum(cov, b)
+
+// FRAMA - Fractal Adaptive Moving Average of @DonovanWall
+w = -4.6 // "Coefficient (if FRAMA)"
+frama(a, b) =>
+    frama = 0.0
+    n3    = (ta.highest(high, b) - ta.lowest(low, b))/b
+    hd2   = ta.highest(high, b/2)
+    ld2   = ta.lowest(low, b/2)
+    n2    = (hd2 - ld2)/(b/2)
+    n1    = (hd2[b/2] - ld2[b/2])/(b/2)
+    dim   = (n1 > 0) and (n2 > 0) and (n3 > 0) ? (math.log(n1 + n2) - math.log(n3))/math.log(2) : 0
+    alpha = math.exp(w*(dim - 1))
+    sc    = (alpha < 0.01 ? 0.01 : (alpha > 1 ? 1 : alpha))
+    frama := ta.cum(1)<=2*b ? a : (a*sc) + nz(frama[1])*(1 - sc)
+    frama
+
+cti(sm, src, cd) =>
+    di = (sm - 1.0) / 2.0 + 1.0
+    c1 = 2 / (di + 1.0)
+    c2 = 1 - c1
+    c3 = 3.0 * (cd * cd + cd * cd * cd)
+    c4 = -3.0 * (2.0 * cd * cd + cd + cd * cd * cd)
+    c5 = 3.0 * cd + 1.0 + cd * cd * cd + 3.0 * cd * cd
+    i1 = 0.0
+    i2 = 0.0
+    i3 = 0.0
+    i4 = 0.0
+    i5 = 0.0
+    i6 = 0.0
+    i1 := c1 * src + c2 * nz(i1[1])
+    i2 := c1 * i1 + c2 * nz(i2[1])
+    i3 := c1 * i2 + c2 * nz(i3[1])
+    i4 := c1 * i3 + c2 * nz(i4[1])
+    i5 := c1 * i4 + c2 * nz(i5[1])
+    i6 := c1 * i5 + c2 * nz(i6[1])
+    bfr = -cd * cd * cd * i6 + c3 * i5 + c4 * i4 + c5 * i3
+    bfr
+
+a = 0.618
+T3ma(src, Len) =>
+    e1 = ta.ema(src, Len)
+    e2 = ta.ema(e1, Len)
+    e3 = ta.ema(e2, Len)
+    e4 = ta.ema(e3, Len)
+    e5 = ta.ema(e4, Len)
+    e6 = ta.ema(e5, Len)
+    C1 = -a * a * a
+    C2 = 3 * a * a + 3 * a * a * a
+    C3 = -6 * a * a - 3 * a - 3 * a * a * a
+    C4 = 1 + 3 * a + a * a * a + 3 * a * a
+    C1 * e6 + C2 * e5 + C3 * e4 + C4 * e3
+    
+VIDYA(src, Len) =>
+    mom = ta.change(src)
+    upSum = math.sum(math.max(mom, 0), Len)
+    downSum = math.sum(-math.min(mom, 0), Len)
+    out = (upSum - downSum) / (upSum + downSum)
+    cmo = math.abs(out)
+    alpha = 2 / (Len + 1)
+    vidya = 0.0
+    vidya := src * alpha * cmo + nz(vidya[1]) * (1 - alpha * cmo)
+    vidya
+
+// ZLEMA: Zero Lag
+zema(_src, _len) =>
+    _alpha = (_len - 1) / 2
+    _zlema0 = _src + _src - _src[_alpha]
+    _zlemaF = ta.ema(_zlema0, _len)
+    _zlemaF
+
+// EMA RSI Adaptive of @glaz
+rsi_ema(src, period) =>
+    RsiPeriod = 14
+    ema = 0.0
+    RSvoltl = math.abs(ta.rsi(close, RsiPeriod)-50)+1.0
+    multi   = (5.0+100.0/RsiPeriod) / (0.06+0.92*RSvoltl+0.02*math.pow(RSvoltl,2))
+    pdsx    = multi*period
+    alpha   = 2.0 /(1.0+pdsx)
+    ema     := nz(ema[1])+alpha*(ta.sma(close, period)-nz(ema[1]))
+    ema
+
+// MA Type
+ma(MAType, MASource, MAPeriod) =>
+    if MAPeriod > 0
+        if MAType == "SMA"
+            ta.sma(MASource, MAPeriod)
+        else if MAType == "LSMA"
+            ta.linreg(MASource, MAPeriod, 0)
+        else if MAType == "EMA"
+            ta.ema(MASource, MAPeriod)
+        else if MAType == "WMA"
+            ta.wma(MASource, MAPeriod)
+        else if MAType == "RMA"
+            ta.rma(MASource, MAPeriod)
+        else if MAType == "HMA"
+            ta.hma(MASource, MAPeriod)
+        else if MAType == "DEMA"
+            e = ta.ema(MASource, MAPeriod)
+            2 * e - ta.ema(e, MAPeriod)
+        else if MAType == "TEMA"
+            e = ta.ema(MASource, MAPeriod)
+            3 * (e - ta.ema(e, MAPeriod)) + ta.ema(ta.ema(e, MAPeriod), MAPeriod)
+        else if MAType == "VWMA"
+            ta.vwma(MASource, MAPeriod)
+        else if MAType == "ALMA"
+            ta.alma(MASource, MAPeriod, .85, 6)
+        else if MAType == "SWMA" 
+            ta.swma(MASource)
+        else if MAType == "KAMA"
+            kama(MASource, MAPeriod)
+        else if MAType == "Wild"
+            wild = MASource
+            wild := nz(wild[1]) + (MASource - nz(wild[1])) / MAPeriod
+        else if MAType == "JMA"
+            jma(MASource, MAPeriod, 2, 50)
+        else if MAType == "DWMA" // Double Weighted Moving Average
+            ta.wma(ta.wma(MASource, MAPeriod), MAPeriod)
+        else if MAType == "DVWMA" // Double Volume-Weighted Moving Average
+            ta.vwma(ta.vwma(MASource, MAPeriod), MAPeriod)
+        else if MAType == "ADX MA"
+            adx_weighted_ma(MASource, MAPeriod)
+        else if MAType == "COVWMA"
+            covwma(MASource, MAPeriod)
+        else if MAType == "FRAMA"
+            frama(MASource, MAPeriod)
+        else if MAType == "Tillson T3"
+            T3ma(MASource, MAPeriod)
+        else if MAType == "VIDYA"
+            VIDYA(MASource, MAPeriod)
+        else if MAType == "Zero Lag"
+            zema(MASource, MAPeriod)
+        else if MAType == "CTI"
+            cti(MAPeriod, MASource, 0)
+        else if MAType == "RSI EMA"
+            rsi_ema(MASource, MAPeriod)
+
+//______________________________________________________________________________
+// Elliott Wave Oscillator (EWO) Breaking Bands
+//______________________________________________________________________________
+src_ewo = get_src(SRC)
+ewo1    = ma(type_fast, src_ewo, ma_fast) - ma(type_slow, src_ewo, ma_slow) 
+AvgEWO  = ta.ema(ewo1, Len)	
+
+UpperBand = ewo1
+UpperBand := nz(UpperBand[1])
+if ewo1 > 0
+    UpperBand := (UpperBand[1] + 0.0555*(ewo1 - UpperBand[1]))
+    
+
+LowerBand = ewo1
+LowerBand := nz(LowerBand[1])
+
+alertcondition( ewo1 < LowerBand[1], 'Banda inferior' )
+alertcondition( ewo1 > UpperBand[1], 'Banda superior' )
+
+if ewo1 < 0
+    LowerBand := (LowerBand[1] + 0.0555*(ewo1 - LowerBand[1]))
+    
+
+red_orange = #FF4000
+chartreuse = #80FF00
+sky_blue = #00BFFF
+white    = #FFFFFF
+lime     = #15FF00
+yellow   = #F3FF00
+coral    = #FF8080
+lavender = #8080FF
+
+// Color array
+var color[] c_gradients = array.new_color(na)
+
+// Fill the array with colors only on the first iteration of the script
+if barstate.isfirst
+    if i_scheme == SH1
+        array.push(c_gradients, #ff0000), array.push(c_gradients, #ff2c00), array.push(c_gradients, #fe4200), array.push(c_gradients, #fc5300), array.push(c_gradients, #f96200), array.push(c_gradients, #f57000), array.push(c_gradients, #f07e00), array.push(c_gradients, #ea8a00), array.push(c_gradients, #e39600), array.push(c_gradients, #dca100), array.push(c_gradients, #d3ac00), array.push(c_gradients, #c9b600), array.push(c_gradients, #bfc000), array.push(c_gradients, #b3ca00), array.push(c_gradients, #a6d400), array.push(c_gradients, #97dd00), array.push(c_gradients, #86e600), array.push(c_gradients, #71ee00), array.push(c_gradients, #54f700), array.push(c_gradients, #1eff00)
+    else if i_scheme == SH2
+        array.push(c_gradients, #ff00d4), array.push(c_gradients, #f71fda), array.push(c_gradients, #ef2ee0), array.push(c_gradients, #e63ae5), array.push(c_gradients, #de43ea), array.push(c_gradients, #d44bee), array.push(c_gradients, #cb52f2), array.push(c_gradients, #c158f6), array.push(c_gradients, #b75df9), array.push(c_gradients, #ac63fb), array.push(c_gradients, #a267fe), array.push(c_gradients, #966bff), array.push(c_gradients, #8b6fff), array.push(c_gradients, #7e73ff), array.push(c_gradients, #7276ff), array.push(c_gradients, #6479ff), array.push(c_gradients, #557bff), array.push(c_gradients, #437eff), array.push(c_gradients, #2e80ff), array.push(c_gradients, #0082ff)
+    else if i_scheme == SH3
+        array.push(c_gradients, #fafa6e), array.push(c_gradients, #e0f470), array.push(c_gradients, #c7ed73), array.push(c_gradients, #aee678), array.push(c_gradients, #97dd7d), array.push(c_gradients, #81d581), array.push(c_gradients, #6bcc86), array.push(c_gradients, #56c28a), array.push(c_gradients, #42b98d), array.push(c_gradients, #2eaf8f), array.push(c_gradients, #18a48f), array.push(c_gradients, #009a8f), array.push(c_gradients, #00908d), array.push(c_gradients, #008589), array.push(c_gradients, #007b84), array.push(c_gradients, #0c707d), array.push(c_gradients, #196676), array.push(c_gradients, #215c6d), array.push(c_gradients, #275263), array.push(c_gradients, #2a4858)
+    else if i_scheme == SH4
+        array.push(c_gradients, #E50000), array.push(c_gradients, #E6023B), array.push(c_gradients, #E70579), array.push(c_gradients, #E908B7), array.push(c_gradients, #E00BEA), array.push(c_gradients, #A70DEB), array.push(c_gradients, #6E10ED), array.push(c_gradients, #3613EE), array.push(c_gradients, #162DEF), array.push(c_gradients, #1969F1), array.push(c_gradients, #1CA4F2), array.push(c_gradients, #1FDFF4), array.push(c_gradients, #22F5D2), array.push(c_gradients, #25F69C), array.push(c_gradients, #28F867), array.push(c_gradients, #2CF933), array.push(c_gradients, #5DFA2F), array.push(c_gradients, #96FC32), array.push(c_gradients, #CDFD35), array.push(c_gradients, #FFF938)
+    
+    // Invert colors in array
+    if i_invert
+        array.reverse(c_gradients)
+
+// Credits to LucF, https://www.pinecoders.com/faq_and_code/#how-can-i-rescale-an-indicator-from-one-scale-to-another
+f_rescale(_src, _min, _max) =>
+    // Rescales series with known min/max to the color array size.
+    // Dependency : c_gradients array
+    // _src       : series to rescale.
+    // _min, _max : min/max values of series to rescale.
+    var int _size = array.size(c_gradients) - 1
+    int _colorStep = int(_size * (_src - _min)) / int(math.max(_max - _min, 10e-10))
+    _colorStep := _colorStep > _size ? _size : _colorStep < 0 ? 0 : _colorStep
+    int(_colorStep)
+
+// Dependency : c_gradients array
+f_colGrad(_src, _min, _max) => array.get(c_gradients, f_rescale(_src, _min, _max))
+// Colorize the bounded source
+color c_g_ewo = f_colGrad(ewo1, LowerBand, UpperBand)
+
+color_in = ewo1 > LowerBand and ewo1 < 0 ? #683535 : ewo1 > 0 and ewo1 < UpperBand ? #353568 : na
+background = ewo1 > 0 ? color.new(#00FFFF, 85) : color.new(#FF0000, 85) 
+
+color_ewo  = ewo1 > UpperBand ? lavender : ewo1  < LowerBand ? coral : color_in
+plot(show_EWO ? ewo1 : na, title="EWO", color = show_gradient ? c_g_ewo : color_ewo, style = plot.style_columns)
+
+color_sig = AvgEWO > 0 ?  chartreuse : red_orange
+plot(show_EWO and show_signal ? AvgEWO : na, title = "Signal(EWO)", color = color_sig, linewidth = 2)
+
+plot(show_EWO ? UpperBand : na,	title = "Upper", color = #EFEFBF)
+plot(show_EWO ? LowerBand : na,	title = "Lower", color = #EFEFBF)
+hline(show_EWO ? 0 : na, title="Zero Line", linestyle=hline.style_dotted, color=white)
+bgcolor(bg_EWO ? background : na, title = "EWO Background")
+barcolor(color_bar_ewo ? (show_gradient ? c_g_ewo : color_ewo) : na,  title="EWO barcolor")
+
+//______________________________________________________________________________
+// The Expert Trend Locator - XTL 
+//______________________________________________________________________________
+// Based on "Double CCI" | https://www.tradingview.com/script/4vIRtqeP/
+media  = ma(MA_Type2, get_src(src_xtl), period_xtl)
+cciNT  = (get_src(src_xtl) - media) / (0.015 * ta.dev(get_src(src_xtl), period_xtl))
+cciT   = (get_src(src_xtl) - media) / (0.015 * ta.dev(math.abs(get_src(src_xtl) - media), period_xtl))
+values = uTrad ? cciT : cciNT
+
+var color color_XTL = na
+alertcondition(values < -fixed_Value, 'Short', 'Short XTL')
+alertcondition(values > fixed_Value, 'Long', 'Long XTL')
+if (values < -fixed_Value) 
+    color_XTL := red_orange // Bear
+if (-fixed_Value <= values and values <= fixed_Value)
+    color_XTL := white // Neutral
+if (values > fixed_Value)
+    color_XTL := sky_blue // Bull
+
+cond_bull_xtl = detect_bull and ta.crossover(values, fixed_Value)
+cond_bear_xtl = detect_bear and ta.crossunder(values, -fixed_Value)
+
+if cond_bull_xtl
+    alert('Symbol = (' + syminfo.tickerid + ') \n TimeFrame = (' + timeframe.period + ') \n Current Price (' + str.tostring(close) + ') \n Bullish Trend [XTL].', alert.freq_once_per_bar_close)
+if cond_bear_xtl
+    alert('Symbol = (' + syminfo.tickerid + ') \n TimeFrame = (' + timeframe.period + ') \n Current Price (' + str.tostring(close) + ') \n Bearish Trend [XTL].', alert.freq_once_per_bar_close)
+
+barcolor(candles_XTL ? color_XTL : na, title="XLT barcolor")
+
+//______________________________________________________________________________
+// Based on "RSI direction bias - JD" of @Duyck
+// https://www.tradingview.com/script/H0ysE9Xz-RSI-direction-bias-JD/
+//______________________________________________________________________________
+var int bias = 1
+rsi_val = indicator_op == "RSI" ? ta.rsi(src_rsi, len_rsi) : ta.mfi(src_rsi, len_rsi)
+if ta.crossover(rsi_val, top_level)
+    bias := 1
+if ta.crossunder(rsi_val, bottom_level)
+    bias := -1
+
+ob_line  = plot(show_rsi ? 80 : na, color = show_areas ? #CC1076 : na, title="Overbought line")
+os_line  = plot(show_rsi ? 20 : na, color = show_areas ? #10CC66 : na, title="Oversold line")
+max_line = plot(show_rsi ? 100 : na, display=display.none, editable=false)
+min_line = plot(show_rsi ? 0   : na, display=display.none, editable=false)
+fill(max_line, ob_line, show_rsi and show_areas ? color.new(#CC1076, 90) : na, title="Overbought area")
+fill(min_line, os_line, show_rsi and show_areas ? color.new(#10CC66, 90) : na, title="Oversold area")
+
+bias_line  = bias == 1 ? bottom_level : top_level
+bias_color = bias == 1 ? #32CD32 : #FF6347
+bias_color75 = bias == 1 ? color.new(#32CD32, 75) : color.new(#FF6347, 75)
+p1 = plot(show_rsi ? bias_line : na, "Bias Line", color = bias_color)
+p2 = plot(show_rsi ? rsi_val   : na, "MFI|RSI", color = bias_color, linewidth=2)
+fill(p1, p2, color = bias_color75, title="MFI|RSI Background")
+
+vivid_green  = #05FFA6
+strong_green = #00945F
+vivid_pink   = #FF0AE2 // #FF0A70
+strong_pink  = #990040
+
+bcol =
+ bias == 1 ?
+  rsi_val <= top_level    ? strong_green : vivid_green :
+  rsi_val >= bottom_level ? strong_pink : vivid_pink
+barcolor(color_bars ? bcol : na, title="MFI|RSI barcolor") 
+
+bg_color_bias =
+ bias == 1 ?
+  rsi_val <= top_level    ? color.new(strong_green, 85) : color.new(vivid_green, 85) :
+  rsi_val >= bottom_level ? color.new(strong_pink, 85)  : color.new(vivid_pink, 85)
+bgcolor(bg_bias ? bg_color_bias : na, title = "MFI|RSI Background")
+
+long_rsi_mfi  = bias ==  1 and bias[1] == -1
+short_rsi_mfi = bias == -1 and bias[1] ==  1
+plotshape(show_signals ? long_rsi_mfi  : na, title = "MFI|RSI Long",  text = "Long",  style=shape.triangleup,   location=location.bottom, color=vivid_green)
+plotshape(show_signals ? short_rsi_mfi : na, title = "MFI|RSI Short", text = "Short", style=shape.triangledown, location=location.top,    color=#FF0A70) 
+
+// Alerts
+long_bias  = alert_bias_long  and long_rsi_mfi
+short_bias = alert_bias_short and short_rsi_mfi
+
+if long_bias
+    alert(message = "Long MFI|RSI Bias", freq = alert.freq_once_per_bar_close)
+if short_bias
+    alert(message = "Short MFI|RSI Bias", freq = alert.freq_once_per_bar_close)
+
+bearColor = #FF6347
+bullColor = #32CD32
+hiddenBullColor = color.new(bullColor, 80)
+hiddenBearColor = color.new(bearColor, 80)
+textColor = color.white
+noneColor = color.new(color.white, 100)
+osc = rsi_val 
+
+plFound = na(ta.pivotlow(osc, lbL, lbR))  ? false : true
+phFound = na(ta.pivothigh(osc, lbL, lbR)) ? false : true
+_inRange(cond) =>
+	bars = ta.barssince(cond == true)
+	rangeLower <= bars and bars <= rangeUpper
+
+//------------------------------------------------------------------------------
+// Regular Bullish
+// Osc: Higher Low
+
+oscHL = osc[lbR] > ta.valuewhen(plFound, osc[lbR], 1) and _inRange(plFound[1])
+
+// Price: Lower Low
+
+priceLL = low[lbR] < ta.valuewhen(plFound, low[lbR], 1)
+bullCond = plotBull and priceLL and oscHL and plFound
+
+plot(
+     plFound and show_rsi ? osc[lbR] : na,
+     offset=-lbR,
+     title="Regular Bullish",
+     linewidth=2,
+     color=(bullCond ? bullColor : noneColor)
+     )
+
+plotshape(
+	 bullCond and show_rsi ? osc[lbR] : na,
+	 offset=-lbR,
+	 title="Regular Bullish Label",
+	 text=" Bull ",
+	 style=shape.labelup,
+	 location=location.absolute,
+	 color=bullColor,
+	 textcolor=textColor
+	 )
+	 
+//------------------------------------------------------------------------------
+// Hidden Bullish
+// Osc: Lower Low
+
+oscLL = osc[lbR] < ta.valuewhen(plFound, osc[lbR], 1) and _inRange(plFound[1])
+
+// Price: Higher Low
+
+priceHL = low[lbR] > ta.valuewhen(plFound, low[lbR], 1)
+hiddenBullCond = plotHiddenBull and priceHL and oscLL and plFound
+
+plot(
+	 plFound and show_rsi ? osc[lbR] : na,
+	 offset=-lbR,
+	 title="Hidden Bullish",
+	 linewidth=2,
+	 color=(hiddenBullCond ? hiddenBullColor : noneColor)
+	 )
+
+plotshape(
+	 hiddenBullCond and show_rsi ? osc[lbR] : na,
+	 offset=-lbR,
+	 title="Hidden Bullish Label",
+	 text=" H Bull ",
+	 style=shape.labelup,
+	 location=location.absolute,
+	 color=bullColor,
+	 textcolor=textColor
+	 )
+
+//------------------------------------------------------------------------------
+// Regular Bearish
+// Osc: Lower High
+
+oscLH = osc[lbR] < ta.valuewhen(phFound, osc[lbR], 1) and _inRange(phFound[1])
+
+// Price: Higher High
+
+priceHH = high[lbR] > ta.valuewhen(phFound, high[lbR], 1)
+
+bearCond = plotBear and priceHH and oscLH and phFound
+
+plot(
+	 phFound and show_rsi ? osc[lbR] : na,
+	 offset=-lbR,
+	 title="Regular Bearish",
+	 linewidth=2,
+	 color=(bearCond ? bearColor : noneColor)
+	 )
+
+plotshape(
+	 bearCond and show_rsi ? osc[lbR] : na,
+	 offset=-lbR,
+	 title="Regular Bearish Label",
+	 text=" Bear ",
+	 style=shape.labeldown,
+	 location=location.absolute,
+	 color=bearColor,
+	 textcolor=textColor
+	 )
+
+//------------------------------------------------------------------------------
+// Hidden Bearish
+// Osc: Higher High
+
+oscHH = osc[lbR] > ta.valuewhen(phFound, osc[lbR], 1) and _inRange(phFound[1])
+
+// Price: Lower High
+
+priceLH = high[lbR] < ta.valuewhen(phFound, high[lbR], 1)
+
+hiddenBearCond = plotHiddenBear and priceLH and oscHH and phFound
+
+plot(
+	 phFound and show_rsi ? osc[lbR] : na,
+	 offset=-lbR,
+	 title="Hidden Bearish",
+	 linewidth=2,
+	 color=(hiddenBearCond ? hiddenBearColor : noneColor)
+	 )
+
+plotshape(
+	 hiddenBearCond and show_rsi ? osc[lbR] : na,
+	 offset=-lbR,
+	 title="Hidden Bearish Label",
+	 text=" H Bear ",
+	 style=shape.labeldown,
+	 location=location.absolute,
+	 color=bearColor,
+	 textcolor=textColor
+	 )
+
+//______________________________________________________________________________
+// Based on "Bjorgum TSI Arrows" - Author: @Bjorgum
+// https://www.tradingview.com/script/IMf2YLh0-Bjorgum-TSI-Arrows/
+//______________________________________________________________________________
+double_smooth(src, long, short) =>
+	fist_smooth = ta.ema(src, long)
+	ta.ema(fist_smooth, short)
+
+pc = ta.change(get_src(src_tsi))
+double_smoothed_pc = double_smooth(pc, long, short)
+double_smoothed_abs_pc = double_smooth(math.abs(pc), long, short)
+tsi_value = 100 * (double_smoothed_pc / double_smoothed_abs_pc)
+
+data = tsi_value > tsi_value[1] and tsi_value < (ta.ema(tsi_value, signal))
+dtat = tsi_value < tsi_value[1] and tsi_value > (ta.ema(tsi_value, signal))
+
+plotshape(show_TSI ? data : na, title = "TSI Up",   style=shape.triangleup,   location=location.bottom, size=size.tiny, color=color.new(#ADFF2F, 50))
+plotshape(show_TSI ? dtat : na, title = "TSI Down", style=shape.triangledown, location=location.top,    size=size.tiny, color=color.new(yellow, 50)) 
+ 
